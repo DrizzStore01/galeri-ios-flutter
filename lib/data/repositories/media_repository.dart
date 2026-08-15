@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../models/media_item.dart';
-import '../models/album_model.dart';
+// Sembunyikan AlbumType dari photo_manager karena kita punya sendiri
+import '../models/album_model.dart' show AlbumModel, AlbumType;
 
 class MediaRepository {
   final Box<bool> _favoritesBox;
@@ -35,19 +36,22 @@ class MediaRepository {
 
     final AssetPathEntity allPhotos = albums.first;
     final int assetCount = await allPhotos.assetCountAsync;
-    final List<AssetEntity> assets = await allPhotos.getAssetListRange(start: 0, end: assetCount);
-    
+    final List<AssetEntity> assets = await allPhotos.getAssetListRange(
+      start: 0,
+      end: assetCount,
+    );
+
     final List<MediaItem> mediaItems = [];
     for (var asset in assets) {
       if (_trashBox.containsKey(asset.id)) continue;
-      
+
       var item = await MediaItem.fromAssetEntity(asset);
       if (_favoritesBox.containsKey(asset.id)) {
         item = item.copyWith(isFavorite: true);
       }
       mediaItems.add(item);
     }
-    
+
     yield mediaItems;
   }
 
@@ -63,9 +67,12 @@ class MediaRepository {
     for (var path in paths) {
       final int count = await path.assetCountAsync;
       if (count == 0) continue;
-      
-      final List<AssetEntity> firstAsset = await path.getAssetListRange(start: 0, end: 1);
-      
+
+      final List<AssetEntity> firstAsset = await path.getAssetListRange(
+        start: 0,
+        end: 1,
+      );
+
       AlbumType type = AlbumType.custom;
       if (path.isAll) type = AlbumType.recents;
 
@@ -90,9 +97,15 @@ class MediaRepository {
       type: RequestType.common,
     );
 
-    final path = paths.firstWhere((p) => p.id == albumId, orElse: () => paths.first);
+    final path = paths.firstWhere(
+      (p) => p.id == albumId,
+      orElse: () => paths.first,
+    );
     final int count = await path.assetCountAsync;
-    final List<AssetEntity> assets = await path.getAssetListRange(start: 0, end: count);
+    final List<AssetEntity> assets = await path.getAssetListRange(
+      start: 0,
+      end: count,
+    );
 
     final List<MediaItem> items = [];
     for (var asset in assets) {
@@ -112,17 +125,22 @@ class MediaRepository {
     final PermissionState ps = await PhotoManager.requestPermissionExtend();
     if (!ps.isAuth) return [];
 
-    final List<AssetPathEntity> paths = await PhotoManager.getAssetPathList(hasAll: true);
+    final List<AssetPathEntity> paths = await PhotoManager.getAssetPathList(
+      hasAll: true,
+    );
     if (paths.isEmpty) return [];
 
     final AssetPathEntity allPhotos = paths.first;
     final int count = await allPhotos.assetCountAsync;
-    final List<AssetEntity> assets = await allPhotos.getAssetListRange(start: 0, end: count);
+    final List<AssetEntity> assets = await allPhotos.getAssetListRange(
+      start: 0,
+      end: count,
+    );
 
     final List<MediaItem> items = [];
     for (var asset in assets) {
       if (_trashBox.containsKey(asset.id)) continue;
-      
+
       if (_favoritesBox.containsKey(asset.id) || asset.isFavorite) {
         var item = await MediaItem.fromAssetEntity(asset);
         item = item.copyWith(isFavorite: true);
@@ -136,12 +154,17 @@ class MediaRepository {
     final PermissionState ps = await PhotoManager.requestPermissionExtend();
     if (!ps.isAuth) return [];
 
-    final List<AssetPathEntity> paths = await PhotoManager.getAssetPathList(hasAll: true);
+    final List<AssetPathEntity> paths = await PhotoManager.getAssetPathList(
+      hasAll: true,
+    );
     if (paths.isEmpty) return [];
 
     final AssetPathEntity allPhotos = paths.first;
     final int count = await allPhotos.assetCountAsync;
-    final List<AssetEntity> assets = await allPhotos.getAssetListRange(start: 0, end: count);
+    final List<AssetEntity> assets = await allPhotos.getAssetListRange(
+      start: 0,
+      end: count,
+    );
 
     final List<MediaItem> items = [];
     for (var asset in assets) {
@@ -199,7 +222,7 @@ class MediaRepository {
   Future<void> deleteOldTrashItems() async {
     final now = DateTime.now();
     final List<String> toDelete = [];
-    
+
     for (var key in _trashBox.keys) {
       final String id = key as String;
       final DateTime? deletedAt = _trashBox.get(id);

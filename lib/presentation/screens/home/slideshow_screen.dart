@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,16 +11,17 @@ class SlideshowScreen extends ConsumerStatefulWidget {
   final int initialIndex;
 
   const SlideshowScreen({
-    Key? key,
+    super.key,
     required this.assets,
     this.initialIndex = 0,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<SlideshowScreen> createState() => _SlideshowScreenState();
 }
 
-class _SlideshowScreenState extends ConsumerState<SlideshowScreen> with SingleTickerProviderStateMixin {
+class _SlideshowScreenState extends ConsumerState<SlideshowScreen>
+    with SingleTickerProviderStateMixin {
   late int _currentIndex;
   bool _isPlaying = true;
   Timer? _timer;
@@ -29,7 +31,10 @@ class _SlideshowScreenState extends ConsumerState<SlideshowScreen> with SingleTi
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _progressController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
     _startSlideshow();
   }
 
@@ -97,7 +102,7 @@ class _SlideshowScreenState extends ConsumerState<SlideshowScreen> with SingleTi
               duration: const Duration(milliseconds: 500),
               child: _buildMediaItem(widget.assets[_currentIndex]),
             ),
-            
+
             // Progress bar
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
@@ -136,7 +141,13 @@ class _SlideshowScreenState extends ConsumerState<SlideshowScreen> with SingleTi
                       onPressed: _prevSlide,
                     ),
                     IconButton(
-                      icon: Icon(_isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill, color: Colors.white, size: 40),
+                      icon: Icon(
+                        _isPlaying
+                            ? CupertinoIcons.pause_fill
+                            : CupertinoIcons.play_fill,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                       onPressed: _togglePlayPause,
                     ),
                     IconButton(
@@ -161,13 +172,15 @@ class _SlideshowScreenState extends ConsumerState<SlideshowScreen> with SingleTi
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CupertinoActivityIndicator());
         }
-        if (snapshot.hasData) {
+        if (snapshot.hasData && snapshot.data != null) {
           return Image.memory(
             snapshot.data!,
             fit: BoxFit.contain,
           );
         }
-        return const Center(child: Icon(CupertinoIcons.photo, color: Colors.white24, size: 64));
+        return const Center(
+          child: Icon(CupertinoIcons.photo, color: Colors.white24, size: 64),
+        );
       },
     );
   }

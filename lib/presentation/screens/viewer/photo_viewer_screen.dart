@@ -10,7 +10,7 @@ import '../../../data/providers/media_providers.dart';
 class PhotoViewerScreen extends ConsumerStatefulWidget {
   final MediaItem initialItem;
 
-  const PhotoViewerScreen({Key? key, required this.initialItem}) : super(key: key);
+  const PhotoViewerScreen({super.key, required this.initialItem});
 
   @override
   ConsumerState<PhotoViewerScreen> createState() => _PhotoViewerScreenState();
@@ -26,6 +26,12 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
     _pageController = PageController(initialPage: 0);
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _toggleUI() {
     setState(() {
       _showUI = !_showUI;
@@ -35,37 +41,33 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
   void _showBottomSheet() {
     showCupertinoModalPopup(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
+      builder: (BuildContext ctx) => CupertinoActionSheet(
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Share'),
           ),
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Add to Album'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tambah ke Album'),
           ),
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Use as Wallpaper'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Jadikan Wallpaper'),
           ),
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Copy'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Salin'),
           ),
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hide'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Slide Show'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(ctx),
           isDefaultAction: true,
-          child: const Text('Cancel'),
+          child: const Text('Batal'),
         ),
       ),
     );
@@ -73,7 +75,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaAsync = ref.watch(mediaProvider);
+    final mediaAsync = ref.watch(allMediaProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -85,10 +87,12 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
               data: (items) {
                 return PhotoViewGallery.builder(
                   scrollPhysics: const BouncingScrollPhysics(),
-                  builder: (BuildContext context, int index) {
+                  builder: (BuildContext ctx, int index) {
                     final item = items[index];
                     return PhotoViewGalleryPageOptions(
-                      imageProvider: NetworkImage('https://picsum.photos/seed/${item.id}/800/800'),
+                      imageProvider: NetworkImage(
+                        'https://picsum.photos/seed/${item.id}/800/800',
+                      ),
                       initialScale: PhotoViewComputedScale.contained,
                       minScale: PhotoViewComputedScale.contained,
                       maxScale: PhotoViewComputedScale.covered * 2,
@@ -102,8 +106,15 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                   pageController: _pageController,
                 );
               },
-              loading: () => const Center(child: CupertinoActivityIndicator(color: Colors.white)),
-              error: (e, st) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.white))),
+              loading: () => const Center(
+                child: CupertinoActivityIndicator(color: Colors.white),
+              ),
+              error: (e, st) => Center(
+                child: Text(
+                  'Error: $e',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
             ),
             AnimatedOpacity(
               opacity: _showUI ? 1.0 : 0.0,
@@ -113,8 +124,11 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      color: Colors.black.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      color: Colors.black.withValues(alpha: 0.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -133,13 +147,16 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                                 onPressed: _showBottomSheet,
                               ),
                             ],
-                          )
+                          ),
                         ],
                       ),
                     ),
                     Container(
-                      color: Colors.black.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                      color: Colors.black.withValues(alpha: 0.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 16,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -148,11 +165,17 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                             onPressed: () {},
                           ),
                           IconButton(
-                            icon: const Icon(CupertinoIcons.slider_horizontal_3, color: Colors.white),
+                            icon: const Icon(
+                              CupertinoIcons.slider_horizontal_3,
+                              color: Colors.white,
+                            ),
                             onPressed: () {},
                           ),
                           IconButton(
-                            icon: const Icon(CupertinoIcons.info_circle, color: Colors.white),
+                            icon: const Icon(
+                              CupertinoIcons.info_circle,
+                              color: Colors.white,
+                            ),
                             onPressed: () {},
                           ),
                           IconButton(

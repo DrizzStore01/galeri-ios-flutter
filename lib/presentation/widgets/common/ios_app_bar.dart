@@ -9,12 +9,12 @@ class IOSAppBar extends StatelessWidget implements ObstructingPreferredSizeWidge
   final bool largeTitle;
 
   const IOSAppBar({
-    Key? key,
+    super.key,
     required this.title,
     this.leading,
     this.trailing,
     this.largeTitle = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class IOSAppBar extends StatelessWidget implements ObstructingPreferredSizeWidge
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          color: Colors.white.withOpacity(0.7),
+          color: Colors.white.withValues(alpha: 0.7),
           child: SafeArea(
             bottom: false,
             child: SizedBox(
@@ -92,21 +92,29 @@ class _SliverIOSAppBarDelegate extends SliverPersistentHeaderDelegate {
   });
 
   @override
-  double get minExtent => 44.0 + MediaQueryData.fromWindow(window).padding.top;
-  
+  double get minExtent => 44.0 + _topPadding;
+
   @override
-  double get maxExtent => 96.0 + MediaQueryData.fromWindow(window).padding.top;
+  double get maxExtent => 96.0 + _topPadding;
+
+  // Safe: use WidgetsBinding instead of deprecated window
+  double get _topPadding =>
+      WidgetsBinding.instance.platformDispatcher.views.first.padding.top /
+      WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final double opacity = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+    final double opacity =
+        (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
     final double titleScale = 1.0 - (opacity * 0.3);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgBase = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          color: Colors.white.withOpacity(0.7 + (opacity * 0.2)),
+          color: bgBase.withValues(alpha: 0.7 + (opacity * 0.2)),
           child: SafeArea(
             bottom: false,
             child: Stack(
@@ -138,7 +146,8 @@ class _SliverIOSAppBarDelegate extends SliverPersistentHeaderDelegate {
                         fontSize: 34,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.37,
-                        color: Colors.black.withOpacity(1.0 - (opacity * 0.5)),
+                        color: (isDark ? Colors.white : Colors.black)
+                            .withValues(alpha: 1.0 - (opacity * 0.5)),
                       ),
                     ),
                   ),

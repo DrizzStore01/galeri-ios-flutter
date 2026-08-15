@@ -9,7 +9,7 @@ import '../album/album_screen.dart';
 import '../favorites/favorites_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -64,7 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _PhotosTab extends ConsumerStatefulWidget {
-  const _PhotosTab({Key? key}) : super(key: key);
+  const _PhotosTab();
 
   @override
   ConsumerState<_PhotosTab> createState() => _PhotosTabState();
@@ -76,21 +76,22 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaAsync = ref.watch(mediaProvider);
+    final mediaAsync = ref.watch(allMediaProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final appBarColor = isDark
+        ? const Color(0xFF1C1C1E).withValues(alpha: 0.8)
+        : Colors.white.withValues(alpha: 0.8);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
+      backgroundColor: bgColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 100,
             floating: false,
             pinned: true,
-            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF1C1C1E).withOpacity(0.8)
-                : Colors.white.withOpacity(0.8),
+            backgroundColor: appBarColor,
             flexibleSpace: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -99,9 +100,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                     'Galeri',
                     style: TextStyle(
                       fontFamily: 'SF Pro Display',
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                   centerTitle: false,
@@ -131,9 +130,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
             ],
           ),
           CupertinoSliverRefreshControl(
-            onRefresh: () async {
-              // Refresh logic
-            },
+            onRefresh: () async {},
           ),
           mediaAsync.when(
             data: (items) {
@@ -143,15 +140,17 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(CupertinoIcons.photo, size: 64, color: Color(0xFF8E8E93)),
+                        const Icon(
+                          CupertinoIcons.photo,
+                          size: 64,
+                          color: Color(0xFF8E8E93),
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Tidak ada foto',
                           style: TextStyle(
                             fontFamily: 'SF Pro Text',
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white
-                                : Colors.black,
+                            color: isDark ? Colors.white : Colors.black,
                           ),
                         ),
                       ],
@@ -209,11 +208,17 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                                 child: BackdropFilter(
                                   filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    color: Colors.black.withOpacity(0.5),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    color: Colors.black.withValues(alpha: 0.5),
                                     child: const Text(
                                       '0:30',
-                                      style: TextStyle(color: Colors.white, fontSize: 10),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -223,15 +228,23 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                             const Positioned(
                               top: 4,
                               right: 4,
-                              child: Icon(CupertinoIcons.heart_fill, color: Colors.white, size: 16),
+                              child: Icon(
+                                CupertinoIcons.heart_fill,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                           if (_isSelecting)
                             Positioned(
                               bottom: 4,
                               right: 4,
                               child: Icon(
-                                isSelected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-                                color: isSelected ? const Color(0xFF007AFF) : Colors.white,
+                                isSelected
+                                    ? CupertinoIcons.checkmark_circle_fill
+                                    : CupertinoIcons.circle,
+                                color: isSelected
+                                    ? const Color(0xFF007AFF)
+                                    : Colors.white,
                               ),
                             ),
                         ],
@@ -254,9 +267,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
       bottomNavigationBar: _isSelecting
           ? Container(
               height: 60,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1C1C1E)
-                  : Colors.white,
+              color: bgColor,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [

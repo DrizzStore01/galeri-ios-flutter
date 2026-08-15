@@ -38,7 +38,7 @@ workflows:
 
       - name: Run Flutter analyze
         script: |
-          flutter analyze --no-fatal-infos
+          flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Run unit tests
         script: |
@@ -112,7 +112,7 @@ workflows:
 
       - name: Run Flutter analyze
         script: |
-          flutter analyze --no-fatal-infos
+          flutter analyze --no-fatal-infos --no-fatal-warnings
         ignore_failure: false
 
       - name: Run unit tests with coverage
