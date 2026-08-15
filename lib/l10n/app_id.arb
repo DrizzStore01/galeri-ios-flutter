@@ -1,0 +1,66 @@
+{
+  "@@locale": "id",
+  "appName": "Galeri",
+  "photos": "Foto",
+  "videos": "Video",
+  "albums": "Album",
+  "favorites": "Favorit",
+  "trash": "Sampah",
+  "backup": "Cadangan",
+  "all": "Semua",
+  "edit": "Edit",
+  "share": "Bagikan",
+  "delete": "Hapus",
+  "restore": "Pulihkan",
+  "emptyTrash": "Kosongkan Sampah",
+  "noPhotos": "Tidak Ada Foto",
+  "noVideos": "Tidak Ada Video",
+  "noFavorites": "Tidak Ada Favorit",
+  "loading": "Memuat...",
+  "permissionRequired": "Izin Diperlukan",
+  "permissionMessage": "Aplikasi ini memerlukan akses ke penyimpanan untuk menampilkan foto dan video Anda.",
+  "grantPermission": "Berikan Izin",
+  "cancel": "Batal",
+  "done": "Selesai",
+  "today": "Hari Ini",
+  "yesterday": "Kemarin",
+  "thisWeek": "Minggu Ini",
+  "thisMonth": "Bulan Ini",
+  "slideshow": "Tampilan Slide",
+  "cropAndEdit": "Potong & Edit",
+  "filters": "Filter",
+  "brightness": "Kecerahan",
+  "contrast": "Kontras",
+  "saturation": "Saturasi",
+  "rotate": "Putar",
+  "flip": "Balik",
+  "save": "Simpan",
+  "discard": "Buang",
+  "addToFavorites": "Tambahkan ke Favorit",
+  "removeFromFavorites": "Hapus dari Favorit",
+  "moveToTrash": "Pindahkan ke Sampah",
+  "restoreFromTrash": "Pulihkan dari Sampah",
+  "deleteForever": "Hapus Selamanya",
+  "selectAll": "Pilih Semua",
+  "deselectAll": "Batal Pilih Semua",
+  "selected": "{count} Terpilih",
+  "@selected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudBackup": "Cadangan Awan",
+  "backupEnabled": "Cadangan Diaktifkan",
+  "backupDisabled": "Cadangan Dinonaktifkan",
+  "lastBackup": "Cadangan Terakhir: {time}",
+  "@lastBackup": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "backingUp": "Mencadangkan..."
+}

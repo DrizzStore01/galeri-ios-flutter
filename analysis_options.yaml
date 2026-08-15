@@ -1,0 +1,14 @@
+include: ../../analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - lib/l10n/
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    avoid_print: true
+    use_super_parameters: true
+    require_trailing_commas: true

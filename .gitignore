@@ -1,0 +1,47 @@
+# Galeri App - .gitignore
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+pubspec.lock
+
+# Android
+android/.gradle/
+android/local.properties
+android/captures/
+android/gradlew
+android/gradlew.bat
+
+# Keystore (JANGAN PERNAH commit ini ke repo!)
+*.jks
+*.keystore
+key.properties
+android/key.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+
+# Build runner generated files (opsional - bisa dicommit jika diinginkan)
+# *.g.dart
+# *.freezed.dart
+
+# Codemagic secrets (sudah diatur di dashboard)
+# JANGAN hardcode credentials di sini
+
+# Local environment
+.env
+.env.local

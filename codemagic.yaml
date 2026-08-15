@@ -1,0 +1,219 @@
+workflows:
+  # ──────────────────────────────────────────────────────────────────────────────
+  # WORKFLOW 1: Development Build (Debug APK)
+  # Triggered on every push to 'develop' branch
+  # ──────────────────────────────────────────────────────────────────────────────
+  android-debug-build:
+    name: Android Debug Build
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'develop'
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    environment:
+      flutter: 3.22.0
+      java: 17
+      groups:
+        - firebase_credentials    # FIREBASE_OPTIONS (optional)
+
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $CM_BUILD_DIR/.dart_tool
+
+    scripts:
+      - name: Set up Flutter SDK
+        script: |
+          flutter doctor -v
+
+      - name: Get Flutter dependencies
+        script: |
+          flutter pub get
+
+      - name: Generate code (Hive, Riverpod)
+        script: |
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run Flutter analyze
+        script: |
+          flutter analyze --no-fatal-infos
+
+      - name: Run unit tests
+        script: |
+          flutter test --coverage
+
+      - name: Build debug APK
+        script: |
+          flutter build apk --debug \
+            --build-name="1.0.$BUILD_NUMBER" \
+            --build-number="$BUILD_NUMBER"
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
+      - flutter_drive.log
+
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com    # Ganti dengan email lo
+        notify:
+          success: true
+          failure: true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # WORKFLOW 2: Release Build (Signed APK + AAB for Play Store)
+  # Triggered on push to 'main' or 'release/*' branches
+  # ──────────────────────────────────────────────────────────────────────────────
+  android-release-build:
+    name: Android Release Build (Play Store)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    triggering:
+      events:
+        - push
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+        - pattern: 'release/*'
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+      cancel_previous_builds: false
+
+    environment:
+      flutter: 3.22.0
+      java: 17
+      android_signing:
+        - ios_gallery_keystore        # Nama keystore di Codemagic
+      groups:
+        - google_play_credentials     # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        - firebase_credentials        # Optional
+
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $CM_BUILD_DIR/.dart_tool
+
+    scripts:
+      - name: Set up Flutter SDK
+        script: |
+          flutter doctor -v
+
+      - name: Get Flutter dependencies
+        script: |
+          flutter pub get
+
+      - name: Generate code (Hive, Riverpod, Localization)
+        script: |
+          dart run build_runner build --delete-conflicting-outputs
+          flutter gen-l10n
+
+      - name: Run Flutter analyze
+        script: |
+          flutter analyze --no-fatal-infos
+        ignore_failure: false
+
+      - name: Run unit tests with coverage
+        script: |
+          flutter test --coverage
+        ignore_failure: false
+
+      - name: Build release AAB (Android App Bundle)
+        script: |
+          flutter build appbundle --release \
+            --build-name="1.0.$BUILD_NUMBER" \
+            --build-number="$BUILD_NUMBER" \
+            --obfuscate \
+            --split-debug-info=build/app/outputs/symbols
+
+      - name: Build release APK (universal, for direct distribution)
+        script: |
+          flutter build apk --release \
+            --build-name="1.0.$BUILD_NUMBER" \
+            --build-number="$BUILD_NUMBER" \
+            --obfuscate \
+            --split-debug-info=build/app/outputs/symbols
+
+    artifacts:
+      # AAB for Play Store
+      - build/app/outputs/bundle/release/app-release.aab
+      # APK for direct download
+      - build/app/outputs/flutter-apk/app-release.apk
+      # Debug symbols for crash reporting
+      - build/app/outputs/symbols
+      # Mapping file for ProGuard/R8
+      - build/app/outputs/mapping/release/mapping.txt
+
+    publishing:
+      # ── Deploy to Google Play Store ──
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal        # internal → alpha → beta → production
+        submit_as_draft: true  # Ubah ke false untuk langsung publish
+
+      # ── Email notification ──
+      email:
+        recipients:
+          - your-email@example.com    # Ganti dengan email lo
+        notify:
+          success: true
+          failure: true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # WORKFLOW 3: Pull Request Check
+  # Triggered on every PR to main/develop
+  # ──────────────────────────────────────────────────────────────────────────────
+  android-pr-check:
+    name: PR Check (Analyze + Test)
+    max_build_duration: 20
+    instance_type: linux_x2
+
+    triggering:
+      events:
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: false    # target branch
+      cancel_previous_builds: true
+
+    environment:
+      flutter: 3.22.0
+      java: 17
+
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+
+      - name: Code generation
+        script: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        script: flutter analyze
+
+      - name: Test
+        script: flutter test
+
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: false    # Hanya kirim email kalau gagal
+          failure: true

@@ -1,0 +1,66 @@
+{
+  "@@locale": "en",
+  "appName": "Galeri",
+  "photos": "Photos",
+  "videos": "Videos",
+  "albums": "Albums",
+  "favorites": "Favorites",
+  "trash": "Trash",
+  "backup": "Backup",
+  "all": "All",
+  "edit": "Edit",
+  "share": "Share",
+  "delete": "Delete",
+  "restore": "Restore",
+  "emptyTrash": "Empty Trash",
+  "noPhotos": "No Photos",
+  "noVideos": "No Videos",
+  "noFavorites": "No Favorites",
+  "loading": "Loading...",
+  "permissionRequired": "Permission Required",
+  "permissionMessage": "This app needs access to storage to display your photos and videos.",
+  "grantPermission": "Grant Permission",
+  "cancel": "Cancel",
+  "done": "Done",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "thisWeek": "This Week",
+  "thisMonth": "This Month",
+  "slideshow": "Slideshow",
+  "cropAndEdit": "Crop & Edit",
+  "filters": "Filters",
+  "brightness": "Brightness",
+  "contrast": "Contrast",
+  "saturation": "Saturation",
+  "rotate": "Rotate",
+  "flip": "Flip",
+  "save": "Save",
+  "discard": "Discard",
+  "addToFavorites": "Add to Favorites",
+  "removeFromFavorites": "Remove from Favorites",
+  "moveToTrash": "Move to Trash",
+  "restoreFromTrash": "Restore from Trash",
+  "deleteForever": "Delete Forever",
+  "selectAll": "Select All",
+  "deselectAll": "Deselect All",
+  "selected": "{count} Selected",
+  "@selected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cloudBackup": "Cloud Backup",
+  "backupEnabled": "Backup Enabled",
+  "backupDisabled": "Backup Disabled",
+  "lastBackup": "Last Backup: {time}",
+  "@lastBackup": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "backingUp": "Backing Up..."
+}

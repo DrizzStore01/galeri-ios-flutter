@@ -1,0 +1,8 @@
+# Konfigurasi Flutter untuk l10n (localization)
+arb-dir: lib/l10n
+template-arb-file: app_id.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+preferred-supported-locales:
+  - id
+  - en
