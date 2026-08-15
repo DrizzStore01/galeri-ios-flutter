@@ -19,7 +19,7 @@ dependencies:
   chewie: ^1.7.4                   # Video player UI wrapper
   
   # Image Editing
-  image_editor_plus: ^1.0.8       # Edit foto (crop, filter, adjust)
+  image_editor_plus: ^1.0.6       # Edit foto (crop, filter, adjust)
   image_cropper: ^7.0.3           # Crop foto
   
   # State Management
@@ -42,7 +42,7 @@ dependencies:
   # Utilities
   share_plus: ^9.0.0              # Share photo/video
   path_provider: ^2.1.3           # File system paths
-  permission_handler: ^12.0.0     # Runtime permissions
+  permission_handler: ^11.3.1     # Runtime permissions
   device_info_plus: ^10.1.2       # Device information
   intl: ^0.19.0                   # Internasionalisasi
   collection: ^1.18.0             # Collection utilities

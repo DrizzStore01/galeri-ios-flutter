@@ -18,7 +18,7 @@ workflows:
       cancel_previous_builds: true
 
     environment:
-      flutter: 3.22.0
+      flutter: stable
       java: 17
       groups:
         - firebase_credentials    # FIREBASE_OPTIONS (optional)
@@ -93,7 +93,7 @@ workflows:
       cancel_previous_builds: false
 
     environment:
-      flutter: 3.22.0
+      flutter: stable
       java: 17
       android_signing:
         - ios_gallery_keystore        # Nama keystore di Codemagic
@@ -190,7 +190,7 @@ workflows:
       cancel_previous_builds: true
 
     environment:
-      flutter: 3.22.0
+      flutter: stable
       java: 17
 
     cache:
