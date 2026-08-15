@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:hive/hive.dart';
+// Hide photo_manager's AlbumType to avoid conflict with GalleryAlbumType
 import 'package:photo_manager/photo_manager.dart';
 import '../models/media_item.dart';
-// Sembunyikan AlbumType dari photo_manager karena kita punya sendiri
-import '../models/album_model.dart' show AlbumModel, AlbumType;
+import '../models/album_model.dart';
 
 class MediaRepository {
   final Box<bool> _favoritesBox;
@@ -42,7 +42,7 @@ class MediaRepository {
     );
 
     final List<MediaItem> mediaItems = [];
-    for (var asset in assets) {
+    for (final asset in assets) {
       if (_trashBox.containsKey(asset.id)) continue;
 
       var item = await MediaItem.fromAssetEntity(asset);
@@ -64,7 +64,7 @@ class MediaRepository {
     );
 
     final List<AlbumModel> albums = [];
-    for (var path in paths) {
+    for (final path in paths) {
       final int count = await path.assetCountAsync;
       if (count == 0) continue;
 
@@ -73,8 +73,9 @@ class MediaRepository {
         end: 1,
       );
 
-      AlbumType type = AlbumType.custom;
-      if (path.isAll) type = AlbumType.recents;
+      // Use GalleryAlbumType (our custom enum, not photo_manager's AlbumType)
+      GalleryAlbumType type = GalleryAlbumType.custom;
+      if (path.isAll) type = GalleryAlbumType.recents;
 
       albums.add(AlbumModel(
         id: path.id,
@@ -108,7 +109,7 @@ class MediaRepository {
     );
 
     final List<MediaItem> items = [];
-    for (var asset in assets) {
+    for (final asset in assets) {
       if (_trashBox.containsKey(asset.id)) continue;
 
       var item = await MediaItem.fromAssetEntity(asset);
@@ -138,7 +139,7 @@ class MediaRepository {
     );
 
     final List<MediaItem> items = [];
-    for (var asset in assets) {
+    for (final asset in assets) {
       if (_trashBox.containsKey(asset.id)) continue;
 
       if (_favoritesBox.containsKey(asset.id) || asset.isFavorite) {
@@ -167,7 +168,7 @@ class MediaRepository {
     );
 
     final List<MediaItem> items = [];
-    for (var asset in assets) {
+    for (final asset in assets) {
       if (_trashBox.containsKey(asset.id)) {
         var item = await MediaItem.fromAssetEntity(asset);
         item = item.copyWith(
@@ -190,7 +191,7 @@ class MediaRepository {
 
   Future<void> moveToTrash(List<String> ids) async {
     final now = DateTime.now();
-    for (var id in ids) {
+    for (final id in ids) {
       await _trashBox.put(id, now);
       if (_favoritesBox.containsKey(id)) {
         await _favoritesBox.delete(id);
@@ -199,13 +200,13 @@ class MediaRepository {
   }
 
   Future<void> restoreFromTrash(List<String> ids) async {
-    for (var id in ids) {
+    for (final id in ids) {
       await _trashBox.delete(id);
     }
   }
 
   Future<void> deleteForever(List<String> ids) async {
-    for (var id in ids) {
+    for (final id in ids) {
       await _trashBox.delete(id);
     }
     await PhotoManager.editor.deleteWithIds(ids);
@@ -223,7 +224,7 @@ class MediaRepository {
     final now = DateTime.now();
     final List<String> toDelete = [];
 
-    for (var key in _trashBox.keys) {
+    for (final key in _trashBox.keys) {
       final String id = key as String;
       final DateTime? deletedAt = _trashBox.get(id);
       if (deletedAt != null && now.difference(deletedAt).inDays >= 30) {
@@ -232,7 +233,7 @@ class MediaRepository {
     }
 
     if (toDelete.isNotEmpty) {
-      for (var id in toDelete) {
+      for (final id in toDelete) {
         await _trashBox.delete(id);
       }
       await PhotoManager.editor.deleteWithIds(toDelete);
