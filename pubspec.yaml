@@ -19,7 +19,7 @@ dependencies:
   chewie: ^1.7.4                   # Video player UI wrapper
   
   # Image Editing
-  image_editor_plus: ^3.0.0       # Edit foto (crop, filter, adjust)
+  image_editor_plus: ^1.0.8       # Edit foto (crop, filter, adjust)
   image_cropper: ^7.0.3           # Crop foto
   
   # State Management
