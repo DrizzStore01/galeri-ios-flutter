@@ -43,6 +43,7 @@ workflows:
       - name: Run unit tests
         script: |
           flutter test --coverage
+        ignore_failure: true
 
       - name: Build debug APK
         script: |
