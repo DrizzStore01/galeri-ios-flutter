@@ -1,13 +1,14 @@
 import 'dart:typed_data';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:video_player/video_player.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/providers/media_providers.dart';
 
@@ -23,12 +24,26 @@ class PhotoViewerScreen extends ConsumerStatefulWidget {
 class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
   bool _showUI = true;
   late PageController _pageController;
-  int _currentIndex = 0;
+  late int _currentIndex;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = 0;
     _pageController = PageController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      final items = ref.read(allMediaProvider).asData?.value ?? [];
+      final idx = items.indexWhere((i) => i.id == widget.initialItem.id);
+      _currentIndex = idx >= 0 ? idx : 0;
+      _pageController = PageController(initialPage: _currentIndex);
+      _initialized = true;
+    }
   }
 
   @override
@@ -66,16 +81,17 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
             },
             child: const Text('Cadangkan ke Cloud'),
           ),
-          CupertinoActionSheetAction(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final entity = await AssetEntity.fromId(currentItem.assetId);
-              if (entity != null) {
-                context.push('/editor', extra: entity);
-              }
-            },
-            child: const Text('Edit Foto'),
-          ),
+          if (currentItem.type == MediaType.image)
+            CupertinoActionSheetAction(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final entity = await AssetEntity.fromId(currentItem.assetId);
+                if (entity != null && mounted) {
+                  context.push('/editor', extra: entity);
+                }
+              },
+              child: const Text('Edit Foto'),
+            ),
           CupertinoActionSheetAction(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -119,12 +135,9 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                   );
                 }
 
-                final initialIndex = items.indexWhere((i) => i.id == widget.initialItem.id);
-                final resolvedIndex = initialIndex >= 0 ? initialIndex : 0;
-
                 return PhotoViewGallery.builder(
                   scrollPhysics: const BouncingScrollPhysics(),
-                  pageController: PageController(initialPage: resolvedIndex),
+                  pageController: _pageController,
                   onPageChanged: (index) {
                     setState(() {
                       _currentIndex = index;
@@ -133,6 +146,20 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                   itemCount: items.length,
                   builder: (BuildContext ctx, int index) {
                     final item = items[index];
+                    final isCurrent = index == _currentIndex;
+
+                    if (item.type == MediaType.video) {
+                      return PhotoViewGalleryPageOptions.customChild(
+                        child: _IOSVideoPlayerWidget(
+                          assetId: item.assetId,
+                          isCurrent: isCurrent,
+                        ),
+                        initialScale: PhotoViewComputedScale.contained,
+                        minScale: PhotoViewComputedScale.contained,
+                        maxScale: PhotoViewComputedScale.contained,
+                      );
+                    }
+
                     return PhotoViewGalleryPageOptions.customChild(
                       child: FutureBuilder<Uint8List?>(
                         future: AssetEntity.fromId(item.assetId).then(
@@ -188,10 +215,25 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                             onPressed: () => context.pop(),
                           ),
                           mediaAsync.maybeWhen(
-                            data: (items) => Text(
-                              '${_currentIndex + 1} / ${items.length}',
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                            ),
+                            data: (items) {
+                              if (items.isEmpty) return const SizedBox();
+                              final safeIdx = _currentIndex.clamp(0, items.length - 1);
+                              final currentItem = items[safeIdx];
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${safeIdx + 1} dari ${items.length}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                  if (currentItem.type == MediaType.video)
+                                    const Text(
+                                      'Video',
+                                      style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 11),
+                                    ),
+                                ],
+                              );
+                            },
                             orElse: () => const SizedBox(),
                           ),
                           Row(
@@ -237,6 +279,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                             onPressed: () async {
                               final items = mediaAsync.asData?.value;
                               if (items != null && items.isNotEmpty) {
+                                HapticFeedback.mediumImpact();
                                 final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
                                 final repo = ref.read(mediaRepositoryProvider);
                                 await repo.toggleFavorite(currentItem.id);
@@ -252,7 +295,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                               if (items != null && items.isNotEmpty) {
                                 final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
                                 final entity = await AssetEntity.fromId(currentItem.assetId);
-                                if (entity != null) {
+                                if (entity != null && mounted) {
                                   context.push('/editor', extra: entity);
                                 }
                               }
@@ -263,6 +306,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                             onPressed: () async {
                               final items = mediaAsync.asData?.value;
                               if (items != null && items.isNotEmpty) {
+                                HapticFeedback.mediumImpact();
                                 final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
                                 final repo = ref.read(mediaRepositoryProvider);
                                 await repo.moveToTrash([currentItem.id]);
@@ -283,5 +327,181 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
         ),
       ),
     );
+  }
+}
+
+class _IOSVideoPlayerWidget extends StatefulWidget {
+  final String assetId;
+  final bool isCurrent;
+
+  const _IOSVideoPlayerWidget({
+    required this.assetId,
+    required this.isCurrent,
+  });
+
+  @override
+  State<_IOSVideoPlayerWidget> createState() => _IOSVideoPlayerWidgetState();
+}
+
+class _IOSVideoPlayerWidgetState extends State<_IOSVideoPlayerWidget> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      final entity = await AssetEntity.fromId(widget.assetId);
+      final file = await entity?.file;
+      if (file != null && mounted) {
+        _controller = VideoPlayerController.file(file);
+        await _controller!.initialize();
+        _controller!.addListener(() {
+          if (mounted) setState(() {});
+        });
+        if (mounted) {
+          setState(() {
+            _isInitialized = true;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _IOSVideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isCurrent && oldWidget.isCurrent) {
+      _controller?.pause();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _togglePlay() {
+    if (_controller == null || !_isInitialized) return;
+    HapticFeedback.selectionClick();
+    if (_controller!.value.isPlaying) {
+      _controller!.pause();
+    } else {
+      _controller!.play();
+    }
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return const Center(
+        child: Text('Gagal memutar video', style: TextStyle(color: Colors.white70)),
+      );
+    }
+
+    if (!_isInitialized || _controller == null) {
+      return const Center(
+        child: CupertinoActivityIndicator(color: Colors.white),
+      );
+    }
+
+    final isPlaying = _controller!.value.isPlaying;
+    final position = _controller!.value.position;
+    final duration = _controller!.value.duration;
+
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AspectRatio(
+            aspectRatio: _controller!.value.aspectRatio,
+            child: VideoPlayer(_controller!),
+          ),
+
+          // Center Play/Pause button
+          GestureDetector(
+            onTap: _togglePlay,
+            child: AnimatedOpacity(
+              opacity: isPlaying ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                  color: Colors.white,
+                  size: 44,
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom scrubber
+          Positioned(
+            bottom: 24,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _togglePlay,
+                    child: Icon(
+                      isPlaying ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CupertinoSlider(
+                      value: duration.inMilliseconds > 0
+                          ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+                          : 0.0,
+                      onChanged: (val) {
+                        final newPos = Duration(milliseconds: (val * duration.inMilliseconds).toInt());
+                        _controller!.seekTo(newPos);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }

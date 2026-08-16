@@ -66,6 +66,18 @@ class _PhotoEditorScreenState extends ConsumerState<PhotoEditorScreen> {
     _loadImage();
   }
 
+  @override
+  void didUpdateWidget(covariant PhotoEditorScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.asset.id != widget.asset.id) {
+      setState(() {
+        _isLoading = true;
+        _resetAdjustments();
+      });
+      _loadImage();
+    }
+  }
+
   Future<void> _loadImage() async {
     try {
       final file = await widget.asset.originFile;
