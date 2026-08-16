@@ -8,6 +8,8 @@ import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'data/models/album_model.dart';
 import 'data/models/media_item.dart';
+import 'data/providers/media_providers.dart';
+import 'data/repositories/media_repository.dart';
 import 'presentation/screens/album/album_detail_screen.dart';
 import 'presentation/screens/album/album_screen.dart';
 import 'presentation/screens/backup/backup_screen.dart';
@@ -23,10 +25,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Hive.initFlutter();
+  final mediaRepository = await MediaRepository.init();
 
   runApp(
-    const ProviderScope(
-      child: GaleriApp(),
+    ProviderScope(
+      overrides: [
+        mediaRepositoryProvider.overrideWithValue(mediaRepository),
+      ],
+      child: const GaleriApp(),
     ),
   );
 }
