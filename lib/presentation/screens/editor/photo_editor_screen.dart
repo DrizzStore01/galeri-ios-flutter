@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../../data/providers/media_providers.dart';
 
@@ -85,20 +87,37 @@ class _PhotoEditorScreenState extends ConsumerState<PhotoEditorScreen> {
   }
 
   Future<void> _cropImage() async {
-    if (_currentFile == null) return;
+    String? sourcePath = _currentFile?.path;
+    if (sourcePath == null || !File(sourcePath).existsSync()) {
+      if (_originalBytes != null) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/temp_crop_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        await tempFile.writeAsBytes(_originalBytes!);
+        sourcePath = tempFile.path;
+        _currentFile = tempFile;
+      }
+    }
+
+    if (sourcePath == null) return;
 
     HapticFeedback.mediumImpact();
     final croppedFile = await ImageCropper().cropImage(
-      sourcePath: _currentFile!.path,
+      sourcePath: sourcePath,
       uiSettings: [
         AndroidUiSettings(
-          toolbarTitle: 'Pangkas Foto',
+          toolbarTitle: 'Pangkas',
           toolbarColor: Colors.black,
           toolbarWidgetColor: Colors.white,
           backgroundColor: Colors.black,
           activeControlsWidgetColor: const Color(0xFF007AFF),
           initAspectRatio: CropAspectRatioPreset.original,
           lockAspectRatio: false,
+          aspectRatioPresets: [
+            CropAspectRatioPreset.original,
+            CropAspectRatioPreset.square,
+            CropAspectRatioPreset.ratio4x3,
+            CropAspectRatioPreset.ratio16x9,
+          ],
         ),
       ],
     );
@@ -146,10 +165,65 @@ class _PhotoEditorScreenState extends ConsumerState<PhotoEditorScreen> {
     HapticFeedback.heavyImpact();
 
     try {
-      // Simpan langsung ke device media gallery
+      Uint8List finalBytes = _originalBytes!;
+
+      // Apply real edits to pixel buffer
+      if (_hasAnyEdits()) {
+        img.Image? decoded = img.decodeImage(_originalBytes!);
+        if (decoded != null) {
+          // Rotation
+          if (_rotationQuarter == 1) {
+            decoded = img.copyRotate(decoded, angle: 90);
+          } else if (_rotationQuarter == 2) {
+            decoded = img.copyRotate(decoded, angle: 180);
+          } else if (_rotationQuarter == 3) {
+            decoded = img.copyRotate(decoded, angle: 270);
+          }
+
+          // Flip
+          if (_flipHorizontal) {
+            decoded = img.flipHorizontal(decoded);
+          }
+
+          // Adjust brightness / contrast / saturation
+          double b = 1.0 + _brightness;
+          double c = 1.0 + _contrast;
+          double s = 1.0 + _saturation;
+
+          if (_selectedFilter == 'vivid') {
+            s += 0.4;
+            c += 0.15;
+          } else if (_selectedFilter == 'vivid_warm') {
+            s += 0.4;
+            c += 0.15;
+          } else if (_selectedFilter == 'vivid_cool') {
+            s += 0.4;
+            c += 0.15;
+          } else if (_selectedFilter == 'dramatic') {
+            c += 0.35;
+            s -= 0.1;
+          } else if (_selectedFilter == 'mono' || _selectedFilter == 'silvertone' || _selectedFilter == 'noir') {
+            decoded = img.grayscale(decoded);
+            if (_selectedFilter == 'noir') {
+              c += 0.4;
+            }
+          }
+
+          decoded = img.adjustColor(
+            decoded,
+            brightness: b,
+            contrast: c,
+            saturation: s,
+          );
+
+          finalBytes = Uint8List.fromList(img.encodeJpg(decoded, quality: 95));
+        }
+      }
+
+      // Save directly to device media gallery
       final filename = 'IMG_EDIT_${DateTime.now().millisecondsSinceEpoch}.jpg';
       await PhotoManager.editor.saveImage(
-        _originalBytes!,
+        finalBytes,
         title: filename,
         filename: filename,
       );
@@ -186,13 +260,11 @@ class _PhotoEditorScreenState extends ConsumerState<PhotoEditorScreen> {
       return _identityMatrix();
     }
 
-    // Baseline matrix
     double b = _brightness * 255;
     double c = 1.0 + _contrast;
     double s = 1.0 + _saturation;
     double w = _warmth;
 
-    // Filter presets
     if (_selectedFilter == 'vivid') {
       s += 0.4;
       c += 0.15;
@@ -219,7 +291,6 @@ class _PhotoEditorScreenState extends ConsumerState<PhotoEditorScreen> {
       b -= 10;
     }
 
-    // Lum coefficients for saturation
     const lr = 0.2126;
     const lg = 0.7152;
     const lb = 0.0722;
@@ -229,7 +300,6 @@ class _PhotoEditorScreenState extends ConsumerState<PhotoEditorScreen> {
     double gS = invS * lg;
     double bS = invS * lb;
 
-    // Apply warmth (adds red/yellow, reduces blue)
     double rW = 1.0 + w * 0.2;
     double bW = 1.0 - w * 0.2;
 

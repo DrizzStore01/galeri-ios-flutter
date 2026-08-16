@@ -2,9 +2,11 @@ import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:intl/intl.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/providers/media_providers.dart';
 import '../album/album_screen.dart';
@@ -37,6 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       bottomNavigationBar: CupertinoTabBar(
         currentIndex: _currentIndex,
         onTap: (index) {
+          HapticFeedback.selectionClick();
           setState(() {
             _currentIndex = index;
           });
@@ -74,7 +77,16 @@ class _PhotosTab extends ConsumerStatefulWidget {
 
 class _PhotosTabState extends ConsumerState<_PhotosTab> {
   bool _isSelecting = false;
+  bool _isSearching = false;
+  String _searchQuery = '';
   final Set<String> _selectedItems = {};
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,9 +100,10 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
     return Scaffold(
       backgroundColor: bgColor,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
-            expandedHeight: 100,
+            expandedHeight: _isSearching ? 120 : 100,
             floating: false,
             pinned: true,
             backgroundColor: appBarColor,
@@ -98,24 +111,56 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: FlexibleSpaceBar(
-                  title: Text(
-                    'Galeri',
-                    style: TextStyle(
-                      fontFamily: 'SF Pro Display',
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                  ),
+                  title: _isSearching
+                      ? null
+                      : Text(
+                          'Galeri',
+                          style: TextStyle(
+                            fontFamily: 'SF Pro Display',
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
                   centerTitle: false,
                 ),
               ),
             ),
+            bottom: _isSearching
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(48),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: CupertinoSearchTextField(
+                        controller: _searchController,
+                        placeholder: 'Cari foto atau tanggal...',
+                        onChanged: (val) {
+                          setState(() {
+                            _searchQuery = val.toLowerCase();
+                          });
+                        },
+                      ),
+                    ),
+                  )
+                : null,
             actions: [
               IconButton(
-                icon: const Icon(CupertinoIcons.search, color: Color(0xFF007AFF)),
-                onPressed: () {},
+                icon: Icon(
+                  _isSearching ? CupertinoIcons.xmark_circle_fill : CupertinoIcons.search,
+                  color: const Color(0xFF007AFF),
+                ),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _isSearching = !_isSearching;
+                    if (!_isSearching) {
+                      _searchQuery = '';
+                      _searchController.clear();
+                    }
+                  });
+                },
               ),
               TextButton(
                 onPressed: () {
+                  HapticFeedback.selectionClick();
                   setState(() {
                     _isSelecting = !_isSelecting;
                     _selectedItems.clear();
@@ -126,6 +171,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                   style: const TextStyle(
                     color: Color(0xFF007AFF),
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -138,7 +184,15 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
           ),
           mediaAsync.when(
             data: (items) {
-              if (items.isEmpty) {
+              final filteredItems = _searchQuery.isEmpty
+                  ? items
+                  : items.where((item) {
+                      final titleMatch = item.title.toLowerCase().contains(_searchQuery);
+                      final dateStr = DateFormat('d MMMM yyyy').format(item.dateCreated).toLowerCase();
+                      return titleMatch || dateStr.contains(_searchQuery);
+                    }).toList();
+
+              if (filteredItems.isEmpty) {
                 return SliverFillRemaining(
                   child: Center(
                     child: Column(
@@ -151,7 +205,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Tidak ada foto',
+                          _searchQuery.isNotEmpty ? 'Foto tidak ditemukan' : 'Tidak ada foto',
                           style: TextStyle(
                             fontFamily: 'SF Pro Text',
                             color: isDark ? Colors.white : Colors.black,
@@ -163,6 +217,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                   ),
                 );
               }
+
               return SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
@@ -171,11 +226,12 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final item = items[index];
+                    final item = filteredItems[index];
                     final isSelected = _selectedItems.contains(item.id);
 
                     return GestureDetector(
                       onLongPress: () {
+                        HapticFeedback.selectionClick();
                         setState(() {
                           _isSelecting = true;
                           _selectedItems.add(item.id);
@@ -183,6 +239,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                       },
                       onTap: () {
                         if (_isSelecting) {
+                          HapticFeedback.selectionClick();
                           setState(() {
                             if (isSelected) {
                               _selectedItems.remove(item.id);
@@ -253,7 +310,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                       ),
                     );
                   },
-                  childCount: items.length,
+                  childCount: filteredItems.length,
                 ),
               );
             },
@@ -282,6 +339,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                     onPressed: _selectedItems.isEmpty
                         ? null
                         : () async {
+                            HapticFeedback.mediumImpact();
                             final repo = ref.read(mediaRepositoryProvider);
                             for (final id in _selectedItems) {
                               await repo.toggleFavorite(id);
@@ -299,6 +357,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                     onPressed: _selectedItems.isEmpty
                         ? null
                         : () async {
+                            HapticFeedback.mediumImpact();
                             final repo = ref.read(mediaRepositoryProvider);
                             await repo.moveToTrash(_selectedItems.toList());
                             ref.invalidate(allMediaProvider);
@@ -352,12 +411,13 @@ class _UtilitiesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final cardColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final bgColor = isDark ? const Color(0xFF000000) : const Color(0xFFF2F2F7);
+    final cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return Scaffold(
       backgroundColor: bgColor,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar(
             expandedHeight: 100,
@@ -394,7 +454,10 @@ class _UtilitiesTab extends StatelessWidget {
                   subtitle: 'Item yang dihapus dalam 30 hari terakhir',
                   cardColor: cardColor,
                   isDark: isDark,
-                  onTap: () => context.push('/trash'),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    context.push('/trash');
+                  },
                 ),
                 const SizedBox(height: 12),
                 _buildMenuItem(
@@ -405,21 +468,24 @@ class _UtilitiesTab extends StatelessWidget {
                   subtitle: 'Sinkronisasi foto & video ke cloud',
                   cardColor: cardColor,
                   isDark: isDark,
-                  onTap: () => context.push('/backup'),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    context.push('/backup');
+                  },
                 ),
                 const SizedBox(height: 24),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Column(
                     children: [
-                      const Icon(CupertinoIcons.photo_fill_on_rectangle_fill, size: 48, color: Color(0xFF007AFF)),
-                      const SizedBox(height: 8),
+                      const Icon(CupertinoIcons.photo_fill_on_rectangle_fill, size: 50, color: Color(0xFF007AFF)),
+                      const SizedBox(height: 10),
                       Text(
-                        'Galeri iOS Style',
+                        'Galeri iOS',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
