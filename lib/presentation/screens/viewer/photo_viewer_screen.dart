@@ -76,6 +76,21 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
             },
             child: const Text('Edit Foto'),
           ),
+          CupertinoActionSheetAction(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final items = mediaAsync.asData?.value ?? [];
+              final assets = <AssetEntity>[];
+              for (final item in items) {
+                final entity = await AssetEntity.fromId(item.assetId);
+                if (entity != null) assets.add(entity);
+              }
+              if (assets.isNotEmpty && mounted) {
+                context.push('/slideshow', extra: assets);
+              }
+            },
+            child: const Text('Slide Show'),
+          ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.pop(ctx),
