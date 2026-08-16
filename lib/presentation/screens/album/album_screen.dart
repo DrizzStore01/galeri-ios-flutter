@@ -1,31 +1,33 @@
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
 import '../../../data/models/album_model.dart';
 import '../../../data/providers/media_providers.dart';
 
 class AlbumScreen extends ConsumerWidget {
-  const AlbumScreen({Key? key}) : super(key: key);
+  const AlbumScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final albumsAsync = ref.watch(albumsProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
+      backgroundColor: bgColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 100,
             floating: false,
             pinned: true,
-            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF1C1C1E).withOpacity(0.8)
-                : Colors.white.withOpacity(0.8),
+            backgroundColor: isDark
+                ? const Color(0xFF1C1C1E).withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.8),
             flexibleSpace: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -34,24 +36,28 @@ class AlbumScreen extends ConsumerWidget {
                     'Album',
                     style: TextStyle(
                       fontFamily: 'SF Pro Display',
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                   centerTitle: false,
                 ),
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(CupertinoIcons.add, color: Color(0xFF007AFF)),
-                onPressed: () {},
-              ),
-            ],
+          ),
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              ref.invalidate(albumsProvider);
+            },
           ),
           albumsAsync.when(
             data: (albums) {
+              if (albums.isEmpty) {
+                return const SliverFillRemaining(
+                  child: Center(
+                    child: Text('Belum ada album', style: TextStyle(color: CupertinoColors.systemGrey)),
+                  ),
+                );
+              }
               return SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
@@ -74,23 +80,19 @@ class AlbumScreen extends ConsumerWidget {
                             Expanded(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  'https://picsum.photos/seed/${album.id}/200/200',
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                ),
+                                child: _AlbumCoverWidget(coverAssetId: album.coverAssetId),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               album.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontFamily: 'SF Pro Text',
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black,
+                                color: isDark ? Colors.white : Colors.black,
                               ),
                             ),
                             Text(
@@ -119,6 +121,41 @@ class AlbumScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AlbumCoverWidget extends StatelessWidget {
+  final String? coverAssetId;
+
+  const _AlbumCoverWidget({this.coverAssetId});
+
+  @override
+  Widget build(BuildContext context) {
+    if (coverAssetId == null) {
+      return Container(
+        color: CupertinoColors.systemGrey5,
+        child: const Icon(CupertinoIcons.photo_on_rectangle, color: CupertinoColors.systemGrey, size: 40),
+      );
+    }
+
+    return FutureBuilder<Uint8List?>(
+      future: AssetEntity.fromId(coverAssetId!).then(
+        (entity) => entity?.thumbnailDataWithSize(const ThumbnailSize(300, 300)),
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          return Image.memory(
+            snapshot.data!,
+            fit: BoxFit.cover,
+            width: double.infinity,
+          );
+        }
+        return Container(
+          color: CupertinoColors.systemGrey5,
+          child: const Center(child: CupertinoActivityIndicator(radius: 8)),
+        );
+      },
     );
   }
 }

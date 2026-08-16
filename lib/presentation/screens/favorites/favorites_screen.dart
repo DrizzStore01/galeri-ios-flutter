@@ -1,13 +1,15 @@
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/providers/media_providers.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
-  const FavoritesScreen({Key? key}) : super(key: key);
+  const FavoritesScreen({super.key});
 
   @override
   ConsumerState<FavoritesScreen> createState() => _FavoritesScreenState();
@@ -20,20 +22,21 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     final favoritesAsync = ref.watch(favoritesProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final appBarColor = isDark
+        ? const Color(0xFF1C1C1E).withValues(alpha: 0.8)
+        : Colors.white.withValues(alpha: 0.8);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1C1C1E)
-          : Colors.white,
+      backgroundColor: bgColor,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 100,
             floating: false,
             pinned: true,
-            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF1C1C1E).withOpacity(0.8)
-                : Colors.white.withOpacity(0.8),
+            backgroundColor: appBarColor,
             flexibleSpace: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -42,9 +45,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                     'Favorit',
                     style: TextStyle(
                       fontFamily: 'SF Pro Display',
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                   centerTitle: false,
@@ -69,6 +70,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
               ),
             ],
           ),
+          CupertinoSliverRefreshControl(
+            onRefresh: () async {
+              ref.invalidate(favoritesProvider);
+            },
+          ),
           favoritesAsync.when(
             data: (items) {
               if (items.isEmpty) {
@@ -84,9 +90,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                           style: TextStyle(
                             fontFamily: 'SF Pro Text',
                             fontSize: 16,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white
-                                : Colors.black,
+                            color: isDark ? Colors.white : Colors.black,
                           ),
                         ),
                       ],
@@ -128,12 +132,24 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              'https://picsum.photos/seed/${item.id}/200/200',
-                              fit: BoxFit.cover,
+                          FutureBuilder<Uint8List?>(
+                            future: AssetEntity.fromId(item.assetId).then(
+                              (entity) => entity?.thumbnailDataWithSize(const ThumbnailSize(300, 300)),
                             ),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData && snapshot.data != null) {
+                                return Image.memory(
+                                  snapshot.data!,
+                                  fit: BoxFit.cover,
+                                );
+                              }
+                              return Container(
+                                color: CupertinoColors.systemGrey5,
+                                child: const Center(
+                                  child: CupertinoActivityIndicator(radius: 8),
+                                ),
+                              );
+                            },
                           ),
                           if (_isSelecting)
                             Positioned(
@@ -164,15 +180,26 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       bottomNavigationBar: _isSelecting
           ? Container(
               height: 60,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1C1C1E)
-                  : Colors.white,
+              color: bgColor,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   IconButton(
                     icon: const Icon(CupertinoIcons.heart_slash, color: Color(0xFF007AFF)),
-                    onPressed: _selectedItems.isEmpty ? null : () {},
+                    onPressed: _selectedItems.isEmpty
+                        ? null
+                        : () async {
+                            final repo = ref.read(mediaRepositoryProvider);
+                            for (final id in _selectedItems) {
+                              await repo.toggleFavorite(id);
+                            }
+                            ref.invalidate(favoritesProvider);
+                            ref.invalidate(allMediaProvider);
+                            setState(() {
+                              _isSelecting = false;
+                              _selectedItems.clear();
+                            });
+                          },
                   ),
                 ],
               ),

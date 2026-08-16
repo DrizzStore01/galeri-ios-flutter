@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/providers/media_providers.dart';
 
@@ -19,11 +23,12 @@ class PhotoViewerScreen extends ConsumerStatefulWidget {
 class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
   bool _showUI = true;
   late PageController _pageController;
+  int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
+    _pageController = PageController();
   }
 
   @override
@@ -38,30 +43,38 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
     });
   }
 
-  void _showBottomSheet() {
+  void _showBottomSheet(MediaItem currentItem) {
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext ctx) => CupertinoActionSheet(
         actions: <CupertinoActionSheetAction>[
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final entity = await AssetEntity.fromId(currentItem.assetId);
+              final file = await entity?.file;
+              if (file != null) {
+                await Share.shareXFiles([XFile(file.path)], text: currentItem.title);
+              }
+            },
             child: const Text('Share'),
           ),
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tambah ke Album'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.push('/backup');
+            },
+            child: const Text('Cadangkan ke Cloud'),
           ),
           CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Jadikan Wallpaper'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Salin'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Slide Show'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final entity = await AssetEntity.fromId(currentItem.assetId);
+              if (entity != null) {
+                context.push('/editor', extra: entity);
+              }
+            },
+            child: const Text('Edit Foto'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
@@ -85,37 +98,63 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
           children: [
             mediaAsync.when(
               data: (items) {
+                if (items.isEmpty) {
+                  return const Center(
+                    child: Text('Foto tidak ditemukan', style: TextStyle(color: Colors.white)),
+                  );
+                }
+
+                final initialIndex = items.indexWhere((i) => i.id == widget.initialItem.id);
+                final resolvedIndex = initialIndex >= 0 ? initialIndex : 0;
+
                 return PhotoViewGallery.builder(
                   scrollPhysics: const BouncingScrollPhysics(),
+                  pageController: PageController(initialPage: resolvedIndex),
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                  itemCount: items.length,
                   builder: (BuildContext ctx, int index) {
                     final item = items[index];
-                    return PhotoViewGalleryPageOptions(
-                      imageProvider: NetworkImage(
-                        'https://picsum.photos/seed/${item.id}/800/800',
+                    return PhotoViewGalleryPageOptions.customChild(
+                      child: FutureBuilder<Uint8List?>(
+                        future: AssetEntity.fromId(item.assetId).then(
+                          (e) => e?.originBytes,
+                        ),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data != null) {
+                            return Image.memory(
+                              snapshot.data!,
+                              fit: BoxFit.contain,
+                            );
+                          }
+                          return const Center(
+                            child: CupertinoActivityIndicator(color: Colors.white),
+                          );
+                        },
                       ),
                       initialScale: PhotoViewComputedScale.contained,
                       minScale: PhotoViewComputedScale.contained,
-                      maxScale: PhotoViewComputedScale.covered * 2,
+                      maxScale: PhotoViewComputedScale.covered * 3,
                     );
                   },
-                  itemCount: items.length,
                   loadingBuilder: (context, event) => const Center(
                     child: CupertinoActivityIndicator(color: Colors.white),
                   ),
                   backgroundDecoration: const BoxDecoration(color: Colors.black),
-                  pageController: _pageController,
                 );
               },
               loading: () => const Center(
                 child: CupertinoActivityIndicator(color: Colors.white),
               ),
               error: (e, st) => Center(
-                child: Text(
-                  'Error: $e',
-                  style: const TextStyle(color: Colors.white),
-                ),
+                child: Text('Error: $e', style: const TextStyle(color: Colors.white)),
               ),
             ),
+
+            // Top overlay bar
             AnimatedOpacity(
               opacity: _showUI ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 200),
@@ -125,10 +164,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                   children: [
                     Container(
                       color: Colors.black.withValues(alpha: 0.5),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -136,51 +172,90 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
                             icon: const Icon(CupertinoIcons.xmark, color: Colors.white),
                             onPressed: () => context.pop(),
                           ),
+                          mediaAsync.maybeWhen(
+                            data: (items) => Text(
+                              '${_currentIndex + 1} / ${items.length}',
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                            ),
+                            orElse: () => const SizedBox(),
+                          ),
                           Row(
                             children: [
                               IconButton(
                                 icon: const Icon(CupertinoIcons.share, color: Colors.white),
-                                onPressed: () {},
+                                onPressed: () async {
+                                  final items = mediaAsync.asData?.value;
+                                  if (items != null && items.isNotEmpty) {
+                                    final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
+                                    final entity = await AssetEntity.fromId(currentItem.assetId);
+                                    final file = await entity?.file;
+                                    if (file != null) {
+                                      await Share.shareXFiles([XFile(file.path)]);
+                                    }
+                                  }
+                                },
                               ),
                               IconButton(
                                 icon: const Icon(CupertinoIcons.ellipsis, color: Colors.white),
-                                onPressed: _showBottomSheet,
+                                onPressed: () {
+                                  final items = mediaAsync.asData?.value;
+                                  if (items != null && items.isNotEmpty) {
+                                    _showBottomSheet(items[_currentIndex.clamp(0, items.length - 1)]);
+                                  }
+                                },
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
+
+                    // Bottom action toolbar
                     Container(
                       color: Colors.black.withValues(alpha: 0.5),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 16,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           IconButton(
                             icon: const Icon(CupertinoIcons.heart, color: Colors.white),
-                            onPressed: () {},
+                            onPressed: () async {
+                              final items = mediaAsync.asData?.value;
+                              if (items != null && items.isNotEmpty) {
+                                final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
+                                final repo = ref.read(mediaRepositoryProvider);
+                                await repo.toggleFavorite(currentItem.id);
+                                ref.invalidate(allMediaProvider);
+                                ref.invalidate(favoritesProvider);
+                              }
+                            },
                           ),
                           IconButton(
-                            icon: const Icon(
-                              CupertinoIcons.slider_horizontal_3,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {},
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              CupertinoIcons.info_circle,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {},
+                            icon: const Icon(CupertinoIcons.slider_horizontal_3, color: Colors.white),
+                            onPressed: () async {
+                              final items = mediaAsync.asData?.value;
+                              if (items != null && items.isNotEmpty) {
+                                final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
+                                final entity = await AssetEntity.fromId(currentItem.assetId);
+                                if (entity != null) {
+                                  context.push('/editor', extra: entity);
+                                }
+                              }
+                            },
                           ),
                           IconButton(
                             icon: const Icon(CupertinoIcons.trash, color: Colors.white),
-                            onPressed: () {},
+                            onPressed: () async {
+                              final items = mediaAsync.asData?.value;
+                              if (items != null && items.isNotEmpty) {
+                                final currentItem = items[_currentIndex.clamp(0, items.length - 1)];
+                                final repo = ref.read(mediaRepositoryProvider);
+                                await repo.moveToTrash([currentItem.id]);
+                                ref.invalidate(allMediaProvider);
+                                ref.invalidate(trashProvider);
+                                if (mounted) context.pop();
+                              }
+                            },
                           ),
                         ],
                       ),

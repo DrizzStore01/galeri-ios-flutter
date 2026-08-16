@@ -1,8 +1,10 @@
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/providers/media_providers.dart';
 import '../album/album_screen.dart';
@@ -22,7 +24,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     const _PhotosTab(),
     const AlbumScreen(),
     const FavoritesScreen(),
-    const Center(child: Text('Lainnya')),
+    const _UtilitiesTab(),
   ];
 
   @override
@@ -55,7 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.ellipsis_circle),
-            label: 'Lainnya',
+            label: 'Utilitas',
           ),
         ],
       ),
@@ -130,7 +132,9 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
             ],
           ),
           CupertinoSliverRefreshControl(
-            onRefresh: () async {},
+            onRefresh: () async {
+              ref.invalidate(allMediaProvider);
+            },
           ),
           mediaAsync.when(
             data: (items) {
@@ -151,6 +155,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                           style: TextStyle(
                             fontFamily: 'SF Pro Text',
                             color: isDark ? Colors.white : Colors.black,
+                            fontSize: 16,
                           ),
                         ),
                       ],
@@ -192,13 +197,7 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              'https://picsum.photos/seed/${item.id}/200/200',
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                          _RealThumbnailWidget(assetId: item.assetId),
                           if (item.type == MediaType.video)
                             Positioned(
                               bottom: 4,
@@ -213,11 +212,14 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                                       vertical: 2,
                                     ),
                                     color: Colors.black.withValues(alpha: 0.5),
-                                    child: const Text(
-                                      '0:30',
-                                      style: TextStyle(
+                                    child: Text(
+                                      item.duration != null
+                                          ? '${item.duration!.inMinutes}:${(item.duration!.inSeconds % 60).toString().padLeft(2, '0')}'
+                                          : '0:30',
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -277,16 +279,225 @@ class _PhotosTabState extends ConsumerState<_PhotosTab> {
                   ),
                   IconButton(
                     icon: const Icon(CupertinoIcons.heart, color: Color(0xFF007AFF)),
-                    onPressed: _selectedItems.isEmpty ? null : () {},
+                    onPressed: _selectedItems.isEmpty
+                        ? null
+                        : () async {
+                            final repo = ref.read(mediaRepositoryProvider);
+                            for (final id in _selectedItems) {
+                              await repo.toggleFavorite(id);
+                            }
+                            ref.invalidate(allMediaProvider);
+                            ref.invalidate(favoritesProvider);
+                            setState(() {
+                              _isSelecting = false;
+                              _selectedItems.clear();
+                            });
+                          },
                   ),
                   IconButton(
                     icon: const Icon(CupertinoIcons.trash, color: Color(0xFF007AFF)),
-                    onPressed: _selectedItems.isEmpty ? null : () {},
+                    onPressed: _selectedItems.isEmpty
+                        ? null
+                        : () async {
+                            final repo = ref.read(mediaRepositoryProvider);
+                            await repo.moveToTrash(_selectedItems.toList());
+                            ref.invalidate(allMediaProvider);
+                            ref.invalidate(trashProvider);
+                            setState(() {
+                              _isSelecting = false;
+                              _selectedItems.clear();
+                            });
+                          },
                   ),
                 ],
               ),
             )
           : null,
+    );
+  }
+}
+
+class _RealThumbnailWidget extends StatelessWidget {
+  final String assetId;
+
+  const _RealThumbnailWidget({required this.assetId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: AssetEntity.fromId(assetId).then(
+        (entity) => entity?.thumbnailDataWithSize(const ThumbnailSize(300, 300)),
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          return Image.memory(
+            snapshot.data!,
+            fit: BoxFit.cover,
+          );
+        }
+        return Container(
+          color: CupertinoColors.systemGrey5,
+          child: const Center(
+            child: CupertinoActivityIndicator(radius: 8),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UtilitiesTab extends StatelessWidget {
+  const _UtilitiesTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final cardColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 100,
+            floating: false,
+            pinned: true,
+            backgroundColor: isDark
+                ? const Color(0xFF1C1C1E).withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.8),
+            flexibleSpace: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: FlexibleSpaceBar(
+                  title: Text(
+                    'Utilitas',
+                    style: TextStyle(
+                      fontFamily: 'SF Pro Display',
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  centerTitle: false,
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                _buildMenuItem(
+                  context,
+                  icon: CupertinoIcons.trash_fill,
+                  iconColor: CupertinoColors.systemRed,
+                  title: 'Baru Dihapus',
+                  subtitle: 'Item yang dihapus dalam 30 hari terakhir',
+                  cardColor: cardColor,
+                  isDark: isDark,
+                  onTap: () => context.push('/trash'),
+                ),
+                const SizedBox(height: 12),
+                _buildMenuItem(
+                  context,
+                  icon: CupertinoIcons.cloud_upload_fill,
+                  iconColor: CupertinoColors.activeBlue,
+                  title: 'Cadangan Cloud',
+                  subtitle: 'Sinkronisasi foto & video ke cloud',
+                  cardColor: cardColor,
+                  isDark: isDark,
+                  onTap: () => context.push('/backup'),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(CupertinoIcons.photo_fill_on_rectangle_fill, size: 48, color: Color(0xFF007AFF)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Galeri iOS Style',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Versi 1.0.0 (Build 1)',
+                        style: TextStyle(color: CupertinoColors.systemGrey, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required Color cardColor,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: CupertinoColors.systemGrey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(CupertinoIcons.chevron_right, color: CupertinoColors.systemGrey3, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }
