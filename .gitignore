@@ -12,8 +12,6 @@ pubspec.lock
 android/.gradle/
 android/local.properties
 android/captures/
-android/gradlew
-android/gradlew.bat
 
 # Keystore (JANGAN PERNAH commit ini ke repo!)
 *.jks
