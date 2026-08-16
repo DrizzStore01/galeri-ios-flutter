@@ -79,7 +79,7 @@ class _PhotoViewerScreenState extends ConsumerState<PhotoViewerScreen> {
           CupertinoActionSheetAction(
             onPressed: () async {
               Navigator.pop(ctx);
-              final items = mediaAsync.asData?.value ?? [];
+              final items = ref.read(allMediaProvider).asData?.value ?? [];
               final assets = <AssetEntity>[];
               for (final item in items) {
                 final entity = await AssetEntity.fromId(item.assetId);
